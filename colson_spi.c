@@ -39,8 +39,6 @@ void c_spi_init(C_SPI_HandleTypeDef* cspi, c_spi_type spi_type)
 
 	cspi->rxData = 0;
 	cspi->txData = 0;
-	cspi->rcv_step = C_SPI_RCV_STEP_0;
-	cspi->send_step = C_SPI_SEND_STEP_0;
 
 	queue_deinit(&(cspi->q_rcv));
 	queue_deinit(&(cspi->q_send));
@@ -54,26 +52,33 @@ void c_spi_deinit(C_SPI_HandleTypeDef* cspi)
 
 void c_spi_start_tx(C_SPI_HandleTypeDef* cspi)
 {
-	int temp = queue_deQueue(&cspi->q_send);
-	cspi->start_tx = C_SPI_TX_START;
-
-	if(temp < 0)
+	if(queue_isEmpty(&cspi->q_send))
 	{
+		c_spi_tx_complete_callback(cspi);
+		queue_deinit(&cspi->q_send);
 		cspi->txstate = C_SPI_STATE_TX_READY;
 		cspi->start_tx = C_SPI_TX_STOP;
 	}
 	else
-		cspi->txData = temp;
+	{
+		cspi->txData = queue_deQueue(&cspi->q_send);
+		cspi->start_tx = C_SPI_TX_START;
+	}
 }
 
 void c_spi_start_rx(C_SPI_HandleTypeDef* cspi)
 {
 	if(queue_isFull(&cspi->q_rcv))
 	{
+		c_spi_rx_complete_callback(cspi, cspi->q_rcv.arr);
+		queue_deinit(&cspi->q_rcv);
 		cspi->rxstate = C_SPI_STATE_RX_READY;
 		cspi->start_rx = C_SPI_RX_STOP;
 	}
-	cspi->start_rx = C_SPI_RX_START;
+	else
+	{
+		cspi->start_rx = C_SPI_RX_START;
+	}
 }
 
 void c_spi_run(C_SPI_HandleTypeDef* cspi)
@@ -89,10 +94,10 @@ void c_spi_run(C_SPI_HandleTypeDef* cspi)
 	if(cspi->clock_step == C_SPI_CLK_STEP_RISING)
 	{
 		if(cspi->q_send.arr)
-			if(cspi->clock_count == 0 && cspi->q_send.arr)
+			if(cspi->clock_count == 0 && cspi->q_send.size)
 				c_spi_start_tx(cspi);
 		if(cspi->q_rcv.arr)
-			if(cspi->clock_count == 0 && cspi->q_rcv.arr)
+			if(cspi->clock_count == 0 && cspi->q_rcv.size)
 				c_spi_start_rx(cspi);
 	}
 
@@ -125,15 +130,7 @@ void c_spi_run(C_SPI_HandleTypeDef* cspi)
 	}
 	if(cspi->clock_count == 8)
 	{
-		/* sending or receiving sequence complete */
-		if(queue_enQueue(&cspi->q_rcv, cspi->rxData) == -1)
-		{
-			c_spi_rx_complete_callback(cspi, cspi->q_rcv.arr);
-			queue_deinit(&cspi->q_rcv);
-		}
-		if(cspi->start_tx == C_SPI_TX_START)
-			c_spi_tx_complete_callback(cspi);
-
+		queue_enQueue(&cspi->q_rcv, cspi->rxData);
 		cspi->start_tx = C_SPI_TX_STOP;
 		cspi->start_rx = C_SPI_RX_STOP;
 		cspi->rxData = 0;
@@ -203,7 +200,7 @@ void c_spi_set_send_data(C_SPI_HandleTypeDef* cspi, uint8_t length, uint8_t *dat
 	if(cspi->txstate != C_SPI_STATE_TX_READY)
 		return;
 
-	queue_init(&cspi->q_send, length + 1);
+	queue_init(&cspi->q_send, length);
 	for(int i = 0; i < length; i++)
 	{
 		queue_enQueue(&cspi->q_send, data[i]);
@@ -218,7 +215,7 @@ void c_spi_set_rcv_data(C_SPI_HandleTypeDef* cspi, uint8_t length)
 	if(cspi->rxstate != C_SPI_STATE_RX_READY)
 		return;
 
-	queue_init(&cspi->q_rcv, length + 1);
+	queue_init(&cspi->q_rcv, length);
 
 	cspi->rxstate = C_SPI_STATE_RX_BUSY;
 }

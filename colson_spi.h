@@ -10,8 +10,10 @@
 #include "stm32f0xx_hal.h"
 #include "queue.h"
 
-#define MCU_STM32F042 0xC01502
-#define MCU_STM32WB55 0xC01501
+#define MCU_STM32F042 	0xC01502
+#define MCU_STM32WB55  	0xC01501
+#define MCU_ETC  	 	0xC01503
+/* define YOUR MCU */
 
 #define MCUTYPE MCU_STM32F042
 
@@ -37,7 +39,18 @@
 #define C_SPI_TX_GPIO_PIN GPIO_PIN_5
 #define C_SPI_CK_GPIO_PIN GPIO_PIN_6
 #define C_SPI_CS_GPIO_PIN GPIO_PIN_7
+#endif
 
+#if (MCUTYPE == MCU_ETC)
+#define C_SPI_RX_GPIO_PORT /* define here */
+#define C_SPI_TX_GPIO_PORT /* define here */
+#define C_SPI_CK_GPIO_PORT /* define here */
+#define C_SPI_CS_GPIO_PORT /* define here */
+
+#define C_SPI_RX_GPIO_PIN /* define here */
+#define C_SPI_TX_GPIO_PIN /* define here */
+#define C_SPI_CK_GPIO_PIN /* define here */
+#define C_SPI_CS_GPIO_PIN /* define here */
 #endif
 
 
@@ -59,10 +72,7 @@ typedef struct _colson_spi{
 	uint8_t clockflag;				/*!< clock state @ref c_spi_clock_state */
 	uint8_t clock_count;			/*!< counting clock 0 to 7 (8bit data only) */
 	uint8_t clock_bit;				/*!< clock max bit 8 ~ 16 */
-
 	uint8_t clock_step;				/*!< clock sequence 1 ~ 4 @ref c_spi_clk_step*/
-	uint8_t send_step;				/*!< sending sequence @ref c_spi_send_step*/
-	uint8_t rcv_step;				/*!< receiving sequence @ref c_spi_rcv_step */
 }C_SPI_HandleTypeDef;
 
 typedef enum _c_spi_tx_start{
